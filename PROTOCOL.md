@@ -21,6 +21,10 @@ telly keeps your place in sync across your own devices (Fire TV, Mac, LG TV, iPa
 - **Normalising:** before use, the code is uppercased, spaces and dashes are removed, `O` becomes `0`, and `I` and `L` become `1`.
 - **Who knows it:** the code is the only secret. It is shown only on your devices, and it never leaves them.
 
+### Linking by QR code
+
+A device can show the code as a QR code holding `telly://sync?code=<code>`. It adds `&relay=<percent-encoded address>` only when it uses a relay other than telly's own. Devices with a camera read the link and confirm with the user before linking. The link carries the code, so it is shown only on the device's own screen.
+
 ## Keys
 
 The keys come from HKDF-SHA256 with:
