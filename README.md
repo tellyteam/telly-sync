@@ -23,6 +23,16 @@ npm run deploy
 
 Wrangler prints your relay's address, for example `https://telly-sync.<your-subdomain>.workers.dev`. In each telly app, enter that address under Settings → Sync → Relay before linking.
 
+## Usage figures
+
+Once a day the relay saves totals, never anything about a household: how many households and devices synced in the last 1, 7 and 30 days. To see them, open the Cloudflare dashboard → Storage & Databases → D1 → telly-sync → Console, and run:
+
+```sql
+SELECT date(day * 86400, 'unixepoch') AS date, households_1d, households_7d, households_30d,
+       devices_1d, devices_7d, devices_30d, households_total
+FROM stats ORDER BY day DESC LIMIT 30;
+```
+
 ## Develop
 
 ```bash

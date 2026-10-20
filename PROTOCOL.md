@@ -96,6 +96,7 @@ The base URL is configurable (for example `https://telly-sync.example.workers.de
   - each device id with its sealed parcel;
   - the **day** each parcel was last written.
 - **What it never keeps:** request logs, IP addresses or times of day.
+- **Daily totals for the operator:** how many households and devices synced in the last 1, 7 and 30 days, and the number of households. These are counts only; they say nothing about any household or device.
 - **Expiry:** parcels not written for 90 days are deleted, then empty mailboxes.
 
 Devices sync when telly opens or comes back to the front, and after playback stops. They never sync during playback.

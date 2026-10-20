@@ -1,4 +1,4 @@
-import { expire, handle, type Parcel, type Store } from "./relay";
+import { daily, handle, type Parcel, type Store } from "./relay";
 
 interface Env {
   DB: D1Database;
@@ -50,6 +50,21 @@ class D1Store implements Store {
     ]);
   }
 
+  async recordStats(day: number) {
+    const active = (since: number, what: string) =>
+      this.db.prepare(`SELECT COUNT(DISTINCT ${what}) AS n FROM parcels WHERE day >= ? AND day <= ?`).bind(since, day);
+    const rows = await this.db.batch<{ n: number }>([
+      active(day, "mailbox"), active(day - 6, "mailbox"), active(day - 29, "mailbox"),
+      active(day, "mailbox || device"), active(day - 6, "mailbox || device"), active(day - 29, "mailbox || device"),
+      this.db.prepare("SELECT COUNT(*) AS n FROM mailboxes"),
+    ]);
+    const [h1, h7, h30, d1, d7, d30, total] = rows.map((r) => r.results[0]?.n ?? 0);
+    await this.db
+      .prepare("INSERT OR REPLACE INTO stats VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(day, h1, h7, h30, d1, d7, d30, total)
+      .run();
+  }
+
   async expire(day: number) {
     await this.db.batch([
       this.db.prepare("DELETE FROM parcels WHERE day < ?").bind(day),
@@ -63,6 +78,6 @@ export default {
     return handle(request, new D1Store(env.DB));
   },
   async scheduled(_event: ScheduledController, env: Env) {
-    await expire(new D1Store(env.DB));
+    await daily(new D1Store(env.DB));
   },
 } satisfies ExportedHandler<Env>;

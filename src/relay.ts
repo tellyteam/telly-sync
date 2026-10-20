@@ -29,6 +29,8 @@ export interface Store {
   removeMailbox(mailbox: string): Promise<void>;
   /** Deletes parcels last written before [day], then mailboxes with none left. */
   expire(day: number): Promise<void>;
+  /** Records the day's totals (counts only) for the operator. */
+  recordStats(day: number): Promise<void>;
 }
 
 export const today = (now: number) => Math.floor(now / DAY_MS);
@@ -113,3 +115,9 @@ export async function handle(request: Request, store: Store, now = Date.now()): 
 }
 
 export const expire = (store: Store, now = Date.now()) => store.expire(today(now) - EXPIRY_DAYS);
+
+/** The daily job: yesterday's totals first (while every parcel still counts), then expiry. */
+export async function daily(store: Store, now = Date.now()) {
+  await store.recordStats(today(now) - 1);
+  await expire(store, now);
+}

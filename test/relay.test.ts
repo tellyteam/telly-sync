@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expire, handle, MAX_BODY, MAX_DEVICES, type Parcel, type Store } from "../src/relay";
+import { daily, expire, handle, MAX_BODY, MAX_DEVICES, type Parcel, type Store } from "../src/relay";
 
 class MemoryStore implements Store {
   auth = new Map<string, string>();
@@ -28,6 +28,10 @@ class MemoryStore implements Store {
   async removeMailbox(m: string) {
     this.rows.delete(m);
     this.auth.delete(m);
+  }
+  stats: number[] = [];
+  async recordStats(day: number) {
+    this.stats.push(day);
   }
   async expire(day: number) {
     for (const [m, devices] of this.rows) {
@@ -126,6 +130,15 @@ describe("relay", () => {
     await expire(store, 120 * day);
     expect(await store.devices(MAILBOX)).toEqual(["aaaaaaaaaaaaaaaa"]);
     await expire(store, 200 * day);
+    expect(store.auth.size).toBe(0);
+  });
+
+  it("records yesterday's totals before expiring anything", async () => {
+    const store = new MemoryStore();
+    const day = 86_400_000;
+    await put(store, DEVICE, TOKEN, undefined, 0);
+    await daily(store, 200 * day);
+    expect(store.stats).toEqual([199]);
     expect(store.auth.size).toBe(0);
   });
 
