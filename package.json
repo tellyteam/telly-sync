@@ -1,0 +1,19 @@
+{
+  "name": "telly-sync",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler d1 migrations apply telly-sync --remote && wrangler deploy",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.4",
+    "wrangler": "^4.151.2"
+  }
+}

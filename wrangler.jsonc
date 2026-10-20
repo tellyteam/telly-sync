@@ -1,0 +1,19 @@
+{
+  "name": "telly-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // No request logs, traces or analytics: the relay keeps nothing about who used it.
+  "observability": { "enabled": false, "logs": { "enabled": false, "invocation_logs": false } },
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": { "crons": ["17 3 * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "telly-sync",
+      // Filled in by `npx wrangler d1 create telly-sync`; see README.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
