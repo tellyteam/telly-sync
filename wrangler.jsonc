@@ -11,8 +11,8 @@
     {
       "binding": "DB",
       "database_name": "telly-sync",
-      // Filled in by `npx wrangler d1 create telly-sync`; see README.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // telly's own database. Running your own? Replace it with the id `npx wrangler d1 create telly-sync` prints.
+      "database_id": "22aa0209-8de0-4e81-8946-9ef89187ca04",
       "migrations_dir": "migrations"
     }
   ]
