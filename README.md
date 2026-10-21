@@ -1,6 +1,6 @@
 # telly-sync
 
-The relay that keeps your place in sync across telly on Fire TV, Mac, LG TV and iPad.
+The relay that keeps your place in sync across telly on [Android TV and Fire TV](https://github.com/tellyteam/telly-android), [iPad and Mac](https://github.com/tellyteam/telly-apple) and [LG TVs](https://github.com/tellyteam/telly-lg).
 
 It's a mailbox for sealed boxes:
 - Each device encrypts its progress, Continue watching and My List with a key derived from a link code. The relay never sees the code.

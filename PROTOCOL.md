@@ -1,6 +1,6 @@
 # telly sync, version 1
 
-telly keeps your place in sync across your own devices (Fire TV, Mac, LG TV, iPad) through a tiny relay. The relay only ever holds sealed boxes it cannot open.
+telly keeps your place in sync across your own devices (Android TV and Fire TV, iPad and Mac, LG TV) through a tiny relay. The relay only ever holds sealed boxes it cannot open.
 
 ## What is synced, and what never is
 
