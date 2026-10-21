@@ -1,4 +1,4 @@
-# telly sync, version 1
+# telly sync, version 2
 
 telly keeps your place in sync across your own devices (Android TV and Fire TV, iPad and Mac, LG TV) through a tiny relay. The relay only ever holds sealed boxes it cannot open.
 
@@ -10,9 +10,9 @@ telly keeps your place in sync across your own devices (Android TV and Fire TV, 
 - Continue watching: a channel, film or episode id plus a time. A series entry also carries the series id.
 - My List: the key, for example `film:4567`, and whether it's on the list.
 
-**Never synced or stored:** the provider address, username or password; playlist URLs; titles, names or artwork; anything else about you. This holds even in hashed form.
+**Never synced or stored:** the provider address, username or password; playlist URLs; titles, names or artwork; anything else about you. This holds even in hashed form: the only trace of a provider is its **provider tag** (below), which can't be worked out without your link code.
 
-- Everything is keyed by your provider's own ids, so linked devices must use the same provider. Each device signs in to your provider separately, and the relay never learns which provider that is.
+- Everything is keyed by your provider's own ids, and kept apart per provider, so devices only share what belongs to a provider they both use. Each device signs in to each provider separately, and the relay never learns which providers they are.
 - Clients must drop any key or id that is not short and plain: `^[a-z]{1,8}[/:][A-Za-z0-9._-]{1,40}$` for keys and `^[A-Za-z0-9._-]{1,40}$` for ids. This keeps URLs out. M3U playlists use the stream URL as the id, so M3U items are never synced.
 
 ## Link code
@@ -41,32 +41,61 @@ The keys come from HKDF-SHA256 with:
 
 Each install also picks a random **device id**: 8 bytes, as lowercase hex (16 characters).
 
+## Provider tag
+
+A device may have several providers. Everything in a parcel is filed under a **provider tag**, so
+progress for film 4567 on one provider never lands on film 4567 on another.
+
+- **Provider key:** HKDF-SHA256 as above, with info `provider` (32 bytes).
+- **Tag:** HMAC-SHA256(provider key, identity), the first 8 bytes as lowercase hex (16 characters).
+- **Identity** (UTF-8, lines joined with `\n`):
+  - Xtream Codes: `xtream`, the normalised server address, the username.
+  - M3U playlist: `m3u`, the playlist URL with surrounding spaces trimmed.
+- **Normalising the server address:** trim spaces; lowercase it; add `http://` if it has no scheme;
+  drop a default port (`:80` for http, `:443` for https); remove trailing `/`.
+  For example ` Example.com:8080/ ` becomes `http://example.com:8080`.
+
+The tag is keyed by the link code, so to anyone without the code (the relay included) it means
+nothing. With the code, it only says whether two devices use the same provider.
+
 ## Parcel
 
-Each device writes one parcel, which holds its whole current state.
+Each device writes one parcel, which holds its whole current state: a section for each provider it has.
 
 ```json
 {
-  "v": 1,
+  "v": 2,
   "at": 1760000000000,
-  "progress": { "series/1234.mkv": [600000, 2700000, 1760000000000] },
-  "history":  [ { "kind": "series", "series": "88", "id": "1234", "at": 1760000000000 },
-                { "kind": "film", "id": "4567", "at": 1759990000000 },
-                { "kind": "live", "id": "301", "at": 1759900000000 },
-                { "kind": "film", "id": "999", "at": 1759800000000, "removed": true } ],
-  "list":     { "film:4567": [1760000000000, true], "live:12": [1759000000000, false] },
-  "cleared":  0
+  "providers": {
+    "7a6c86b8dde4ea72": {
+      "progress": { "series/1234.mkv": [600000, 2700000, 1760000000000] },
+      "history":  [ { "kind": "series", "series": "88", "id": "1234", "at": 1760000000000 },
+                    { "kind": "film", "id": "4567", "at": 1759990000000 },
+                    { "kind": "live", "id": "301", "at": 1759900000000 },
+                    { "kind": "film", "id": "999", "at": 1759800000000, "removed": true } ],
+      "list":     { "film:4567": [1760000000000, true], "live:12": [1759000000000, false] },
+      "cleared":  0
+    }
+  }
 }
 ```
 
+- `providers` maps a provider tag (`^[0-9a-f]{16}$`; drop anything else) to a **section**. At most 20 sections.
 - All times are milliseconds since 1970.
 - `progress` maps a key to `[position, duration, saved at]`.
 - `history` holds one entry per slot. The slots are `live`, `film:<id>` and `series:<series>`.
   - `removed: true` means the entry was taken out of Continue watching.
 - `list` maps a My List key to `[changed at, on the list]`.
-- `cleared` is when watch progress was last cleared on any device, or 0 if never. Progress and history saved at or before then are dropped, on every device. My List is kept.
+- `cleared` is when that provider's watch progress was last cleared on any device, or 0 if never. Its progress and history saved at or before then are dropped, on every device. My List is kept.
 - Removals (`removed`, and `false` in `list`) are kept for 90 days, so they reach the other devices.
-- Limits: at most 2,000 progress entries, 40 history entries and 2,000 list entries. The newest are kept.
+- Limits, per section: at most 2,000 progress entries, 40 history entries and 2,000 list entries. The newest are kept.
+
+### Version 1 parcels
+
+Version 1 had no providers: its `progress`, `history`, `list` and `cleared` sat at the top level,
+and every device was assumed to use the same provider. A version 2 device reads a version 1 parcel
+as one section for **its current provider**, which is what version 1 meant. Version 1 devices
+ignore version 2 parcels (their version check fails), so nothing is misread while devices update.
 
 ### Sealing
 
@@ -75,7 +104,8 @@ Each device writes one parcel, which holds its whole current state.
 
 ### Merging
 
-When a device syncs, it combines its own state with every other device's parcel.
+When a device syncs, it combines its own state with every other device's parcel, section by section,
+for the providers it has. Sections for providers it doesn't have are left out of its own parcel.
 - For each key or slot, the newest `at` wins, and a removal is just a newer entry. On a tie, the device's own entry wins.
 - `cleared` takes the latest value, and then anything at or before it is dropped.
 
@@ -115,3 +145,6 @@ Every client must reproduce these values:
 | nonce (hex) | `000102030405060708090a0b` |
 | plaintext | `{"v":1}` |
 | sealed (hex) | `01000102030405060708090a0b8c30ca4029013ae61434a3351cb312ca06d33a229d9dd9` |
+| provider key (hex) | `aa8cdcfe052be0d9af0c773916897e916d773f7b7bd8140a15f15131c34711b4` |
+| tag of Xtream server ` Example.com:8080/ `, username `me` | `7a6c86b8dde4ea72` |
+| tag of M3U playlist `https://example.com/list.m3u` | `ff2163ea5d23fc01` |
