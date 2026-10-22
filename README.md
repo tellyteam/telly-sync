@@ -43,4 +43,4 @@ npm run dev                                           # http://localhost:8787
 
 ## Licence
 
-GPL-3.0-only.
+telly is free for personal, non-commercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use, including running it as or within a paid service, or bundling telly with a paid service, needs permission: ask through GitHub.

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "license": "GPL-3.0-only",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "dev": "wrangler dev --local",
     "deploy": "wrangler d1 migrations apply telly-sync --remote && wrangler deploy",
