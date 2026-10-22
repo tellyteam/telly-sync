@@ -12,6 +12,8 @@ telly keeps your place in sync across your own devices (Android TV and Fire TV, 
 
 **Never synced or stored:** the provider address, username or password; playlist URLs; titles, names or artwork; anything else about you. This holds even in hashed form: the only trace of a provider is its **provider tag** (below), which can't be worked out without your link code.
 
+The one exception is opt-in: a device where you turn on **Share provider logins** also shares its providers' logins with your other devices that have it on (see "Logins" below), in a second sealed box inside the parcel.
+
 - Everything is keyed by your provider's own ids, and kept apart per provider, so devices only share what belongs to a provider they both use. Each device signs in to each provider separately, and the relay never learns which providers they are.
 - Clients must drop any key or id that is not short and plain: `^[a-z]{1,8}[/:][A-Za-z0-9._-]{1,40}$` for keys and `^[A-Za-z0-9._-]{1,40}$` for ids. This keeps URLs out. M3U playlists use the stream URL as the id, so M3U items are never synced.
 
@@ -38,6 +40,7 @@ The keys come from HKDF-SHA256 with:
 | mailbox | `mailbox` | First 16 bytes, as lowercase hex (32 characters): the relay address of the household. |
 | key     | `key`     | The AES-256-GCM key for parcels. |
 | auth    | `auth`    | Sent as `Authorization: Bearer <base64url, no padding>`. The relay keeps only its SHA-256. |
+| logins  | `logins`  | The AES-256-GCM key for the logins box (see "Logins"). |
 
 Each install also picks a random **device id**: 8 bytes, as lowercase hex (16 characters).
 
@@ -90,11 +93,38 @@ Each device writes one parcel, which holds its whole current state: a section fo
 - Removals (`removed`, and `false` in `list`) are kept for 90 days, so they reach the other devices.
 - Limits, per section: at most 2,000 progress entries, 40 history entries and 2,000 list entries. The newest are kept.
 
+### Logins (opt-in)
+
+Only a device where the user has turned on **Share provider logins** adds `logins` to its parcel,
+and only such a device reads the `logins` of others. It is a string: the sealed box, as base64.
+
+- **Sealing:** the same envelope as a parcel (`0x01 ‖ nonce ‖ AES-256-GCM(…)`), with the **logins**
+  key and the aad `telly-sync v1|logins|<mailbox>|<device>`.
+- **Inside:** JSON mapping a provider tag to a login, or to a removal:
+
+```json
+{
+  "7a6c86b8dde4ea72": { "at": 1760000000000, "kind": "xtream", "name": "Home",
+                        "server": " Example.com:8080/ ", "username": "me", "password": "…", "allowCleartext": true },
+  "ff2163ea5d23fc01": { "at": 1760000000000, "kind": "m3u", "name": "Playlist",
+                        "url": "https://example.com/list.m3u", "allowCleartext": false },
+  "0123456789abcdef": { "at": 1760000000000, "removed": true }
+}
+```
+
+- A login whose tag isn't the tag of its own identity is dropped.
+- Merging: per tag the newest `at` wins, and a removal is a newer entry. A device adds providers it
+  doesn't have, updates ones whose login is newer, and removes ones removed more recently than it
+  last changed them. Removals are kept for 90 days. At most 20 logins.
+
 ### Version 1 parcels
 
 Version 1 had no providers: its `progress`, `history`, `list` and `cleared` sat at the top level,
-and every device was assumed to use the same provider. A version 2 device reads a version 1 parcel
-as one section for **its current provider**, which is what version 1 meant. Version 1 devices
+and every device was assumed to use the same provider. A version 2 device with **exactly one** saved provider
+reads a version 1 parcel as one section for that provider, which is what version 1 meant. A device
+with several providers ignores version 1 parcels: it can't tell whose they are, and reading them as
+the provider in use would copy one provider's My List and progress into every provider switched to
+(where its ids point at unrelated programmes). Version 1 devices
 ignore version 2 parcels (their version check fails), so nothing is misread while devices update.
 
 ### Sealing
@@ -148,3 +178,5 @@ Every client must reproduce these values:
 | provider key (hex) | `aa8cdcfe052be0d9af0c773916897e916d773f7b7bd8140a15f15131c34711b4` |
 | tag of Xtream server ` Example.com:8080/ `, username `me` | `7a6c86b8dde4ea72` |
 | tag of M3U playlist `https://example.com/list.m3u` | `ff2163ea5d23fc01` |
+| logins key (hex) | `8bef4c523a4e523d49d504c587836e5b804b7fc42d498a2bd59c8a2ecb7dd49f` |
+| logins box of `{}` (same device and nonce) | `01000102030405060708090a0bb8e5248c11cad1416ea6d5dfb19164d7d67c` |
